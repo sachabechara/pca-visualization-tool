@@ -1,92 +1,103 @@
 function pca_builder()
-% main entry point - sets up everything
+%sets up everything
 close all; clc;
 
 % colors for teh whole app
 colors = struct();
-colors.var1 = [0.95, 0.7, 0.75];
-colors.var2 = [0.7, 0.85, 0.95];
-colors.var3 = [0.85, 0.95, 0.75];
-colors.mean = [1, 0.6, 0.4];
-colors.pc1 = [1, 0.5, 0.5];
-colors.pc2 = [0.6, 0.7, 1];
-colors.pc3 = [0.5, 0.9, 0.7];
-colors.ellipse = [1, 0.85, 0.4];
+colors.var1 = [0.95, 0.7, 0.75]; %pink
+colors.var2 = [0.7, 0.85, 0.95];%blue
+colors.var3 = [0.85, 0.95, 0.75];%green
+colors.mean = [1, 0.6, 0.4];%redishs
+colors.pc1 = [1, 0.5, 0.5];%pink
+colors.pc2 = [0.6, 0.7, 1];%red
+colors.pc3 = [0.5, 0.9, 0.7];%blue
+colors.ellipse = [1, 0.85, 0.4];%green
 
 % main figure
 fig = figure('Position', [50, 50, 1400, 850], 'Color', [0.08, 0.08, 0.08], 'NumberTitle', 'off', 'Name', 'PCA Builder');
 
 % state holds everyting
+% all teh app state in one struct for easy passing around
 state = struct();
-state.n = 50;
-state.stage = 1;
-state.pca_step = 0;
-state.mean1 = 0; state.sd1 = 1;
-state.mean2 = 0; state.sd2 = 1;
-state.mean3 = 0; state.sd3 = 1;
-state.corr12 = 0.7;
-state.corr13 = 0.6;
-state.corr23 = 0.5;
+state.n = 50;  % number of point that can be modified
+state.stage = 1;  % 1=3x1D, 2=2D, 3=3D, 4=PCA
+state.pca_step = 0;  % wich pca step to show
+%diff combination of mean and sd needs diff combaintion of varibales 
+state.mean1 = 0; state.sd1 = 1;%by defualt tsrandradzed data 
+state.mean2 = 0; state.sd2 = 1;%by defualt tsrandradzed data 
+state.mean3 = 0; state.sd3 = 1;%by defualt tsrandradzed data 
+state.corr12 = 0.7;  % default correlations
+state.corr13 = 0.6;% default correlations
+state.corr23 = 0.5;% default correlations
+% display toggles/clikciable
 state.show_mean = true;
 state.show_sd = true;
-state.show_deviations = false;
+state.show_deviations = false;%set to false cause vsiually overloading
 state.show_component_deviations = false;
 state.show_ellipsoid = true;
 state.show_reference_cube = true;
 state.show_grid = true;
 state.show_pc_projections = false;
 state.color_by_pc1 = false;
-state.dot_size = 80;
-state.dot_color = [0.95, 0.7, 0.75];
-state.deviation_color = [0.6, 0.6, 0.6];
-state.color_axes_by_var = false;
-state.selected_point_idx = -1;
-state.var_pair_2d = [1, 2];
-state.interaction_mode = 'rotate';
-state.animating = false;
+% appearance settings
+state.dot_size = 80;% will need to make modifiable later
+state.dot_color = [0.95, 0.7, 0.75];% will need to make modifiable later
+state.deviation_color = [0.6, 0.6, 0.6];% will need to make modifiable later
+state.color_axes_by_var = false;% setting htis speifically for 3D where it can be hard to see which axis is reposnsible for what
+% interaction state
+state.selected_point_idx = -1;  % -1 means no selection
+state.var_pair_2d = [1, 2];  % wich pair to show in 2D mode
+state.interaction_mode = 'rotate';  % or 'select'
+state.animating = false;  % true during animations
 state.colors = colors;
-state = generate_data(state);
+state = generate_data(state);% from user seletcion of all of the above
 
-% 3x1D axes stacked vertically
-state.ax1 = axes('Position', [0.05, 0.72, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);
-state.ax2 = axes('Position', [0.05, 0.42, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);
-state.ax3 = axes('Position', [0.05, 0.12, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);
+%3x1D axes stacked vertically for stage 1
+state.ax1 = axes('Position', [0.05, 0.72, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);%pink
+state.ax2 = axes('Position', [0.05, 0.42, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);%blue
+state.ax3 = axes('Position', [0.05, 0.12, 0.50, 0.18], 'Color', [0.05, 0.05, 0.05]);%green
+% main axis used for stages 2-4
 state.ax_main = axes('Position', [0.05, 0.12, 0.50, 0.78], 'Color', [0.05, 0.05, 0.05]);
 
-% hide main axis - we start in 3x1D mode
+%hide main axis,, we start in 3x1D mode
 set(state.ax_main, 'Visible', 'off');
 
-% build UI and start
+% buildteh UI and start renderig
 create_ui(fig, state);
-setappdata(fig, 'state', state);
+setappdata(fig, 'state', state);  % store state in figure!!!!!! 
 update_controls_visibility(fig);
 update_display(fig);
 
 fprintf('PCA Builder Ready!\n');
 end
 
-%% data generation
+%% data generation step
 function state = generate_data(state)
+% generates random data based on current params
+% different logic for each stage
 n = state.n;
 
-% correlation values
+% correlation values form sliders
 r12 = state.corr12;
 r13 = state.corr13;
 r23 = state.corr23;
 
 if state.stage == 1
-    % stage 1 = independent vars, no correlation
+    % stage 1 => independent vars, no correlation
+    % jsut generate 3 separate normal distributions
     state.I1 = state.mean1 + state.sd1 * randn(n, 1);
     state.I2 = state.mean2 + state.sd2 * randn(n, 1);
     state.I3 = state.mean3 + state.sd3 * randn(n, 1);
 
 elseif state.stage == 2
-    % stage 2 - check if corr matrix is valid first
+    % stage 2 +> check if corr matrix is valid first
+    % chol fails if matrix isnt positive definite
     R = [1, r12, r13; r12, 1, r23; r13, r23, 1];
     [~, p] = chol(R);
 
     if p > 0
-        % not valid so we need to fix r23
+        % then would not be valid SO we need to fix r23
+        % clamp r23 to valid range based on r12 nad r13
         min_r23 = r12*r13 - sqrt(max(0, (1-r12^2)*(1-r13^2)));
         max_r23 = r12*r13 + sqrt(max(0, (1-r12^2)*(1-r13^2)));
         r23 = max(min_r23, min(max_r23, r23));
@@ -94,16 +105,19 @@ elseif state.stage == 2
         [~, p] = chol(R);
     end
 
-    % which var pair
+    % which var pair?
     pair = state.var_pair_2d;
     
+    % handle perfect correlation cases separately (caused issue before-)
+    % becasue mvnrnd cant handle r=1 or r=-1
     if isequal(pair, [1,2]) && abs(r12) >= 0.999 && state.sd1 > 0 && state.sd2 > 0
-        % pair 1-2 with perfect corr
+        % then pair 1-2 with perfect corr
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
+        % var2 is jsut a linear transform of var1 sp
         state.I2 = state.mean2 + sign(r12) * state.sd2 * (state.I1 - state.mean1) / state.sd1;
         state.I3 = state.mean3 + state.sd3 * randn(n, 1);
     elseif isequal(pair, [1,3]) && abs(r13) >= 0.999 && state.sd1 > 0 && state.sd3 > 0
-        % pair 1-3 with perfect corr
+        % pair1-3 with perfect corr
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
         state.I3 = state.mean3 + sign(r13) * state.sd3 * (state.I1 - state.mean1) / state.sd1;
         state.I2 = state.mean2 + state.sd2 * randn(n, 1);
@@ -113,7 +127,8 @@ elseif state.stage == 2
         state.I3 = state.mean3 + sign(r23) * state.sd3 * (state.I2 - state.mean2) / state.sd2;
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
     elseif p == 0 && state.sd1 > 0 && state.sd2 > 0 && state.sd3 > 0
-        % matrix valid, use mvnrnd
+        % matrix valid, so use mvnrnd
+        % and convert correlation matrix to covariance matrix
         Sigma = diag([state.sd1, state.sd2, state.sd3]) * R * diag([state.sd1, state.sd2, state.sd3]);
         mu = [state.mean1, state.mean2, state.mean3];
         raw = mvnrnd(mu, Sigma, n);
@@ -121,44 +136,49 @@ elseif state.stage == 2
         state.I2 = raw(:, 2);
         state.I3 = raw(:, 3);
     else
-        % fallback
+        % fallback if nothing else work
+        % manually induces correlation using linear combo
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
         z = randn(n, 1);
+        % r12 part is correlated, and sqrt part is independent noise
         state.I2 = state.mean2 + state.sd2 * (r12 * (state.I1 - state.mean1)/state.sd1 + sqrt(max(0, 1-r12^2)) * z);
         state.I3 = state.mean3 + state.sd3 * randn(n, 1);
     end
 
 else
-    % stage 3+ full 3D
+    %stage 3+ full 3D
+    % same logic as stage 2 but fo all three vars
     R = [1, r12, r13; r12, 1, r23; r13, r23, 1];
     [~, p] = chol(R);
 
-    % check perfect correlations first
+    %check if perfect correlations first
     if abs(r12) >= 0.999 && abs(r13) >= 0.999 && abs(r23) >= 0.999
-        % all on a line
+        %if all correlations perfect so points lie on a line
         t = randn(n, 1);
         state.I1 = state.mean1 + state.sd1 * t;
         state.I2 = state.mean2 + sign(r12) * state.sd2 * t;
         state.I3 = state.mean3 + sign(r13) * state.sd3 * t;
     elseif abs(r12) >= 0.999 && state.sd1 > 0 && state.sd2 > 0
-        % perfect r12
+        % perfect r12 case
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
         state.I2 = state.mean2 + sign(r12) * state.sd2 * (state.I1 - state.mean1) / state.sd1;
         state.I3 = state.mean3 + state.sd3 * randn(n, 1);
     elseif abs(r13) >= 0.999 && state.sd1 > 0 && state.sd3 > 0
-        % perfect r13
+        % perfect r13 case
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
         state.I3 = state.mean3 + sign(r13) * state.sd3 * (state.I1 - state.mean1) / state.sd1;
         state.I2 = state.mean2 + state.sd2 * randn(n, 1);
     elseif abs(r23) >= 0.999 && state.sd2 > 0 && state.sd3 > 0
-        % perfect r23
+        % perfect r23 case
         state.I2 = state.mean2 + state.sd2 * randn(n, 1);
         state.I3 = state.mean3 + sign(r23) * state.sd3 * (state.I2 - state.mean2) / state.sd2;
         state.I1 = state.mean1 + state.sd1 * randn(n, 1);
     elseif p > 0
-        % matrix invalid - adjust r23 to fix it
+        %matrix invalid so adjust r23 to fix it
+        % but r23 must be in a certian range given r12 and r13
         min_r23 = r12*r13 - sqrt(max(0, (1-r12^2)*(1-r13^2)));
         max_r23 = r12*r13 + sqrt(max(0, (1-r12^2)*(1-r13^2)));
+        % then add small buffer to stay away form boundary
         r23_adjusted = max(min_r23 + 0.001, min(max_r23 - 0.001, r23));
         R = [1, r12, r13; r12, 1, r23_adjusted; r13, r23, 1];
         [~, p2] = chol(R);
@@ -170,13 +190,13 @@ else
             state.I2 = raw(:, 2);
             state.I3 = raw(:, 3);
         else
-            % last resort
+            % if doesn't work still, then last resort just ignroe correlations
             state.I1 = state.mean1 + state.sd1 * randn(n, 1);
             state.I2 = state.mean2 + state.sd2 * randn(n, 1);
             state.I3 = state.mean3 + state.sd3 * randn(n, 1);
         end
     else
-        % matrix valid
+        % else if matrix valid so we can use mvnrnd directly
         if state.sd1 > 0 && state.sd2 > 0 && state.sd3 > 0
             Sigma = diag([state.sd1, state.sd2, state.sd3]) * R * diag([state.sd1, state.sd2, state.sd3]);
             mu = [state.mean1, state.mean2, state.mean3];
@@ -191,11 +211,13 @@ else
         end
     end
 
-    % pca stats
+    % !!!!!!!pca stats computation!!!!!!!
+    %start by compute eigenvectors adn eigenvalues from covariance
     state.mean_vec = [mean(state.I1), mean(state.I2), mean(state.I3)];
     if std(state.I1) > 0.001 && std(state.I2) > 0.001 && std(state.I3) > 0.001
         state.cov = cov([state.I1, state.I2, state.I3]);
         [V, D] = eig(state.cov);
+        %then sort descending so PC1 has largest eigenvalue
         [eigenvalues, idx] = sort(diag(D), 'descend');
         state.eigenvalues = eigenvalues;
         state.eigenvectors = V(:, idx);
@@ -208,7 +230,8 @@ else
     end
 end
 
-% IMPORTANT: handle SD=0 cases or things break
+% IMPORTANT    from prior issues i had : handle SD=0 cases or things break
+% if sd is zero  all points collapse to teh mean
 if state.sd1 == 0, state.I1 = state.mean1 * ones(n, 1); end
 if state.sd2 == 0, state.I2 = state.mean2 * ones(n, 1); end
 if state.sd3 == 0, state.I3 = state.mean3 * ones(n, 1); end
@@ -216,16 +239,18 @@ end
 
 %% UI
 function create_ui(fig, state)
+%build all  controls on the right side panel
 x = 0.60; w = 0.38; y = 0.96;
 bg = [0.08, 0.08, 0.08];
 sep_color = [0.3, 0.3, 0.3];
 
-% stage buttons
+% the stage buttons at the top
 uicontrol('Style', 'text', 'String', 'STAGE:', 'Units', 'normalized', ...
     'Position', [x, y, 0.08, 0.025], 'BackgroundColor', bg, ...
     'ForegroundColor', 'w', 'FontSize', 11, 'FontWeight', 'bold', 'HorizontalAlignment', 'left');
 
 stages = {'3x1D', '2D', '3D', 'PCA'};
+% create 4 stage buttons in a row
 for i = 1:4
     uicontrol('Style', 'pushbutton', 'String', stages{i}, ...
         'Units', 'normalized', 'Position', [x + 0.08 + (i-1)*0.07, y-0.005, 0.065, 0.035], ...
@@ -234,7 +259,8 @@ for i = 1:4
         'Callback', @(~,~) change_stage(fig, i));
 end
 
-% 2D pair selection buttons
+% then 2D pair selection buttons
+% only visible in stage 2 to pick wich vars to plot
 y = y - 0.04;
 uicontrol('Style', 'text', 'String', '2D Pair:', 'Units', 'normalized', ...
     'Position', [x, y, 0.08, 0.02], 'BackgroundColor', bg, ...
@@ -251,12 +277,12 @@ for i = 1:3
         'Callback', @(~,~) change_pair(fig, pair_vals{i}));
 end
 
-% ---
+% had some issue so mnaully moved a bit downa ndup some setcions
 y = y - 0.012;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% variables section
+% variables section panle
 y = y - 0.025;
 uicontrol('Style', 'text', 'String', '📊 VARIABLES', 'Units', 'normalized', ...
     'Position', [x, y, w, 0.022], 'BackgroundColor', bg, ...
@@ -269,18 +295,18 @@ y = create_var_controls(fig, x, y, w, 2, state);
 y = y - 0.008;
 y = create_var_controls(fig, x, y, w, 3, state);
 
-% ---
+% same as above issue iwth positioning
 y = y - 0.027;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% correlations section
+% correlations section panel
 y = y - 0.025;
 uicontrol('Style', 'text', 'String', '🔗 CORRELATIONS', 'Units', 'normalized', ...
     'Position', [x, y, w, 0.022], 'BackgroundColor', bg, ...
     'ForegroundColor', [0.6, 0.85, 1], 'FontSize', 11, 'FontWeight', 'bold', 'HorizontalAlignment', 'left');
 
-y = y - 0.025;
+y = y - 0.025;% same as above issue iwth positioning
 y = create_corr_control(fig, x, y, w, '1-2', state.corr12);
 y = create_corr_control(fig, x, y, w, '1-3', state.corr13);
 y = create_corr_control(fig, x, y, w, '2-3', state.corr23);
@@ -299,12 +325,12 @@ uicontrol('Style', 'text', 'String', sprintf('%d', state.n), ...
     'BackgroundColor', bg, 'ForegroundColor', [1, 1, 1], ...
     'FontWeight', 'bold', 'Tag', 'n_val');
 
-% ---
+% % same as above issue iwth positioning
 y = y - 0.015;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% action buttons row
+% action buttons rows
 y = y - 0.06;
 uicontrol('Style', 'pushbutton', 'String', 'New Sample', ...
     'Units', 'normalized', 'Position', [x, y, 0.12, 0.035], ...
@@ -322,12 +348,12 @@ uicontrol('Style', 'pushbutton', 'String', 'MODE: ROTATE', ...
     'Tag', 'mode_toggle', ...
     'Callback', @(~,~) toggle_mode(fig));
 
-% ---
+% same as above issue iwth positioning
 y = y - 0.015;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% appearance section
+% appearance section panel
 y = y - 0.045;
 uicontrol('Style', 'text', 'String', '🎨 APPEARANCE', 'Units', 'normalized', ...
     'Position', [x, y, w, 0.022], 'BackgroundColor', bg, ...
@@ -356,7 +382,7 @@ for i = 1:8
         'BackgroundColor', col, 'Callback', @(~,~) update_dot_color(fig, col));
 end
 
-% deviation line colors
+% deviation line colors choice
 y = y - 0.028;
 uicontrol('Style', 'text', 'String', 'Devs:', 'Units', 'normalized', ...
     'Position', [x, y, 0.05, 0.02], 'BackgroundColor', bg, ...
@@ -368,7 +394,7 @@ for i = 1:8
         'BackgroundColor', col, 'Callback', @(~,~) update_deviation_color(fig, col));
 end
 
-% color axes checkbox
+% color axes checkbox 
 y = y - 0.028;
 uicontrol('Style', 'checkbox', 'String', 'Color Axes by Variable', 'Value', state.color_axes_by_var, ...
     'Units', 'normalized', 'Position', [x, y, 0.20, 0.022], ...
@@ -380,7 +406,7 @@ y = y - 0.012;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% display toggles section
+% display toggles section panel
 y = y - 0.055;
 uicontrol('Style', 'text', 'String', '👁️ DISPLAY', 'Units', 'normalized', ...
     'Position', [x, y, w, 0.022], 'BackgroundColor', bg, ...
@@ -401,12 +427,12 @@ for i = 1:size(toggles, 1)
         'Tag', toggles{i,1}, 'Callback', @(src,~) toggle_option(fig, toggles{i,1}, src.Value));
 end
 
-% ---
+% same as above issue iwth positioning
 y = y - 0.07;
 uipanel('Parent', fig, 'Units', 'normalized', 'Position', [x, y, w, 0.002], ...
     'BackgroundColor', sep_color, 'BorderType', 'none');
 
-% pca steps - only visible in stage 4
+% %pca steps nit only only visible in stage 4
 y = y - 0.012;
 h1 = uicontrol('Style', 'text', 'String', '🎯 PCA STEPS', 'Units', 'normalized', ...
     'Position', [x, y, w, 0.022], 'BackgroundColor', bg, ...
@@ -491,10 +517,13 @@ y = y - 0.032;
 end
 
 %% callbacks
+% all the UI callback functions go here
+
 function change_stage(fig, new_stage)
+% called when users click a stage buttons
 state = getappdata(fig, 'state');
 state.stage = new_stage;
-state.selected_point_idx = -1;
+state.selected_point_idx = -1;  % clear any selection
 state.animating = false;
 if new_stage == 4, state.pca_step = 0; end
 state = generate_data(state);
@@ -502,7 +531,8 @@ setappdata(fig, 'state', state);
 update_controls_visibility(fig);
 update_display(fig);
 end
-
+% called when users want to change a 
+% diffent selecion of pairwise vsiuals variable
 function change_pair(fig, pair)
 state = getappdata(fig, 'state');
 state.var_pair_2d = pair;
@@ -528,17 +558,19 @@ for i = 1:3
 end
 end
 
+%called when mean or sd slider changes
 function update_param(fig, name, val)
 state = getappdata(fig, 'state');
 state.(name) = val;
 state.animating = false;
+% update teh display label next to slider
 label = findobj(fig, 'Tag', [name '_val']);
 if ~isempty(label), set(label, 'String', sprintf('%.1f', val)); end
 state = generate_data(state);
 setappdata(fig, 'state', state);
 update_display(fig);
 end
-
+% called when correlation slider changes
 function update_corr(fig, tag, val)
 state = getappdata(fig, 'state');
 state.(tag) = val;
@@ -549,7 +581,7 @@ state = generate_data(state);
 setappdata(fig, 'state', state);
 update_display(fig);
 end
-
+% sam ebut for n values of data deisre dby usrs
 function update_n(fig, val)
 state = getappdata(fig, 'state');
 state.n = val;
@@ -588,7 +620,7 @@ state.(name) = logical(val);
 setappdata(fig, 'state', state);
 update_display(fig);
 end
-
+% regenerate random data with same params (same as baove if user change)
 function new_sample(fig)
 state = getappdata(fig, 'state');
 state.selected_point_idx = -1;
@@ -597,8 +629,10 @@ state = generate_data(state);
 setappdata(fig, 'state', state);
 update_display(fig);
 end
-
+% deselect current point if any
+%% WILL NEED CHANGE DOESN4T WORK VERY WELL
 function clear_selection(fig)
+
 state = getappdata(fig, 'state');
 state.selected_point_idx = -1;
 state.animating = false;
@@ -606,7 +640,7 @@ setappdata(fig, 'state', state);
 update_display(fig);
 fprintf('Selection cleared!\n');
 end
-
+% switch between rotate and select modes
 function toggle_mode(fig)
 state = getappdata(fig, 'state');
 if strcmp(state.interaction_mode, 'rotate')
@@ -632,13 +666,15 @@ end
 end
 
 function set_pca(fig, step)
+% called when user clicks pca step button
 state = getappdata(fig, 'state');
 old_step = state.pca_step;
 state.pca_step = step;
 setappdata(fig, 'state', state);
 update_pca_buttons(fig, step);
 
-% animate when stepping through pca
+%animate when stepping through pca
+%only animate if going forward nad step>=2
 if step > old_step && step >= 2
     animate_pca_variance(fig, old_step, step);
 else
@@ -660,6 +696,8 @@ end
 end
 
 function update_controls_visibility(fig)
+% show/hide controls based on current stage
+% eg correlation sliders only visible in stage 2+
 state = getappdata(fig, 'state');
 
 % stage buttons - highlight current one
@@ -685,7 +723,7 @@ if state.stage == 2
     update_pair_buttons(fig, state.var_pair_2d);
 end
 
-% corr sliders - show for stages 2+
+% corr sliders show for stages 2+
 corr_tags = {'corr12_label', 'corr12_slider', 'corr12_val', ...
              'corr13_label', 'corr13_slider', 'corr13_val', ...
              'corr23_label', 'corr23_slider', 'corr23_val'};
@@ -695,7 +733,7 @@ for i = 1:length(corr_tags)
     if ~isempty(obj), set(obj, 'Visible', vis); end
 end
 
-% pca step buttons - only stage 4
+% pca step buttons !!only stage 4
 handles = getappdata(fig, 'pca_handles');
 vis = 'off'; if state.stage == 4, vis = 'on'; end
 if ~isempty(handles)
@@ -703,30 +741,28 @@ if ~isempty(handles)
 end
 end
 
-%% display
+%% display funciton
 function update_display(fig)
+% main render function, called after any state change
 state = getappdata(fig, 'state');
 
 if state.stage == 1
     % stage 1: three 1D plots stacked, hide main axis
     cla(state.ax_main, 'reset');
     set(state.ax_main, 'Visible', 'off');
-    
     % show the three 1D axes
     set(state.ax1, 'Visible', 'on');
     set(state.ax2, 'Visible', 'on');
     set(state.ax3, 'Visible', 'on');
-
     render_1d(state.ax1, state.I1, 'Variable 1', state.colors.var1, state, state.mean1, state.sd1);
     render_1d(state.ax2, state.I2, 'Variable 2', state.colors.var2, state, state.mean2, state.sd2);
     render_1d(state.ax3, state.I3, 'Variable 3', state.colors.var3, state, state.mean3, state.sd3);
 else
-    % stages 2-4: show main axis, hide teh 1D ones
+    %stages 2-4:show main axis, hide teh 1D ones
     cla(state.ax1, 'reset'); set(state.ax1, 'Visible', 'off');
     cla(state.ax2, 'reset'); set(state.ax2, 'Visible', 'off');
     cla(state.ax3, 'reset'); set(state.ax3, 'Visible', 'off');
-
-    % reset main axis for clean render
+    % resetmain axis for clean render
     cla(state.ax_main, 'reset');
     set(state.ax_main, 'Visible', 'on');
     set(state.ax_main, 'Color', [0.05, 0.05, 0.05]);
@@ -742,13 +778,14 @@ end
 
 %% render 1D
 function render_1d(ax, data, label, color, state, param_mean, param_sd)
+% draws a single 1D distribution on a number line
 cla(ax);
 hold(ax, 'on');
 
-% axis line
+% axis line throuhg center
 plot(ax, [-10, 10], [0, 0], 'Color', [0.5, 0.5, 0.5], 'LineWidth', 2);
 
-% tick marks
+% tick mark every 2 units
 for tick = -10:2:10
     plot(ax, [tick, tick], [-0.1, 0.1], 'Color', [0.5, 0.5, 0.5], 'LineWidth', 1);
     if tick == 0
@@ -758,23 +795,24 @@ for tick = -10:2:10
     end
 end
 
-% deviation lines - draw before points so points are on top
+% deviation lines => draw before points so points are on top
+%each line goes form point to mean
 if state.show_deviations && param_sd > 0
     for i = 1:length(data)
         plot(ax, [data(i), param_mean], [0, 0], 'Color', [state.deviation_color, 0.6], 'LineWidth', 2);
     end
 end
 
-% points on top
+% points on top of everything else
 scatter(ax, data, zeros(size(data)), state.dot_size, state.dot_color, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 1);
 
-% mean line
+%mean line is vertical bar at mean position
 if state.show_mean
     plot(ax, [param_mean, param_mean], [-0.4, 0.4], 'Color', state.colors.mean, 'LineWidth', 4);
     text(ax, param_mean, 0.55, sprintf('%.1f', param_mean), 'Color', state.colors.mean, 'FontSize', 9, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
 end
 
-% sd lines
+%sd lines is dashed lines at mean more or minus 1 sd
 if state.show_sd && param_sd > 0
     plot(ax, [param_mean-param_sd, param_mean-param_sd], [-0.3, 0.3], 'Color', state.colors.mean, 'LineWidth', 2, 'LineStyle', '--');
     plot(ax, [param_mean+param_sd, param_mean+param_sd], [-0.3, 0.3], 'Color', state.colors.mean, 'LineWidth', 2, 'LineStyle', '--');
@@ -788,10 +826,12 @@ end
 
 %% render 2D
 function render_2d(ax, state)
+% draws a 2D scatter plot for selected var pair
 hold(ax, 'on');
 view(ax, 2);
 
 % figure out which var pair we're showing
+% dx dy =>data, cx cy =>colors, lx ly => labels !!!!!!!
 pair = state.var_pair_2d;
 if isequal(pair, [1,2])
     dx = state.I1; dy = state.I2; cx = state.colors.var1; cy = state.colors.var2; lx = 'Var 1'; ly = 'Var 2';
@@ -801,12 +841,14 @@ else
     dx = state.I2; dy = state.I3; cx = state.colors.var2; cy = state.colors.var3; lx = 'Var 2'; ly = 'Var 3';
 end
 
-% ellipse at bottom layer
+% ellipse shoudl be at bottom layer showing data spread but not prohibting
+% using slect a point to see its eculdian distance! FIXED
 if state.show_ellipsoid
     plot_ellipse(ax, [mean(dx), mean(dy)], cov([dx, dy]), state.colors.ellipse);
 end
 
-% deviation lines - clickable, drawn before points
+% deviation lines: clickable, drawn !!!before!!! points
+% TEHN clicking a line triggers the decomposition animations
 if state.show_deviations
     mx = mean(dx); my = mean(dy);
     for i = 1:length(dx)
@@ -816,7 +858,8 @@ if state.show_deviations
     end
 end
 
-% component deviations - x and y parts separately
+% component deviations where x and y parts drawn separately
+% shows how total deviation breaks into x adn y components
 if state.show_component_deviations
     mx = mean(dx); my = mean(dy);
     for i = 1:length(dx)
@@ -825,11 +868,11 @@ if state.show_component_deviations
     end
 end
 
-% points on top
+% points on top => make them clickable too
 h = scatter(ax, dx, dy, state.dot_size, state.dot_color, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 1);
 set(h, 'ButtonDownFcn', @(src,~) click_2d(ax, dx, dy));
 
-% mean point
+% mean point visual
 if state.show_mean
     scatter(ax, mean(dx), mean(dy), 200, state.colors.mean, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 2);
 end
@@ -849,23 +892,26 @@ hold(ax, 'off');
 end
 
 function click_2d(ax, dx, dy)
+%handles click on 2D scatter plot to select a point
 fig = ancestor(ax, 'figure');
 state = getappdata(fig, 'state');
 
-% dont allow clicks during animation
+%dont allow clicks during animation or it breaks everyting
 if state.animating
     return;
 end
 
+%get click location in data coords
 pt = get(ax, 'CurrentPoint');
 x_click = pt(1,1); y_click = pt(1,2);
 
+%find closest point to click using euclidean dist
 distances = sqrt((dx - x_click).^2 + (dy - y_click).^2);
 [~, idx] = min(distances);
 
 current_state = getappdata(fig, 'state');
 
-% toggle - click same point again to clear
+%toggle => click same point again to clear seleciton
 if idx == current_state.selected_point_idx
     current_state.selected_point_idx = -1;
 else
@@ -876,7 +922,8 @@ update_display(fig);
 end
 
 function click_deviation_2d(fig, idx, dx, dy, cx, cy)
-% clicked a deviation line - do the decomposition animation
+%clicked a deviation line so do the decomposition animation
+%this is the cool part where euclidean breaks into x adn y
 state = getappdata(fig, 'state');
 
 if state.animating
@@ -888,14 +935,15 @@ setappdata(fig, 'state', state);
 
 animate_deviation_decomposition_2d(state.ax_main, dx, dy, idx, cx, cy, state);
 
-% done animating
+%done animating so reset flag
 state = getappdata(fig, 'state');
 state.animating = false;
 setappdata(fig, 'state', state);
 end
 
 function animate_deviation_decomposition_2d(ax, dx, dy, idx, cx, cy, state)
-% animate breaking down 2D deviation into x and y components
+%animate breaking down 2D deviation into x and y components
+%3 phases: show euclidean then crosshairs then componenets
 mx = mean(dx);
 my = mean(dy);
 x = dx(idx);
@@ -905,11 +953,12 @@ cla(ax, 'reset');
 hold(ax, 'on');
 view(ax, 2);
 
-% animation params
+%animation params (can tweak these for speed)
 n_frames = 50;
 pause_time = 0.03;
 
-% phase 1: show original 2D deviation
+%phase 1 => show original 2D deviation
+%draw the euclidean line form point to mean
 for frame = 1:15
     cla(ax);
     hold(ax, 'on');
@@ -937,7 +986,8 @@ for frame = 1:15
     pause(pause_time);
 end
 
-% phase 2: transform mean point into crosshairs
+%phase 2 => transform mean point into crosshairs
+%fade out mean dot adn grow the axis lines
 for frame = 1:15
     cla(ax);
     hold(ax, 'on');
@@ -972,7 +1022,8 @@ for frame = 1:15
     pause(pause_time);
 end
 
-% phase 3: show x and y component deviations
+%phase 3 => show x and y component deviations
+%now show teh separate dx and dy parts with labels
 for frame = 1:20
     cla(ax);
     hold(ax, 'on');
@@ -1021,7 +1072,7 @@ for frame = 1:20
     pause(pause_time);
 end
 
-% hold final frame then go back to normal
+%hold final frame so user can see it then go back to normal
 pause(1.5);
 
 fig = ancestor(ax, 'figure');
@@ -1029,13 +1080,15 @@ update_display(fig);
 end
 
 function draw_2d_highlight(ax, dx, dy, idx)
+%draws highlight for selected point in 2D
+%shows dashed lines to axes wit coordinate labels
 x = dx(idx); y = dy(idx);
 
-% lines from point to axes
+% dashed lines from point down to axes
 plot(ax, [x, x], [y, -12], 'Color', [1, 1, 0], 'LineWidth', 2.5, 'LineStyle', '--');
 plot(ax, [x, -12], [y, y], 'Color', [1, 1, 0], 'LineWidth', 2.5, 'LineStyle', '--');
 
-% axis markers
+% dots where lines meet axes
 scatter(ax, x, -11, 100, 'y', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
 scatter(ax, -11, y, 100, 'y', 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
 
@@ -1046,34 +1099,38 @@ text(ax, -11.5, y, sprintf('%.1f', y), 'Color', 'y', 'FontSize', 10, 'FontWeight
 % point label
 text(ax, x+0.5, y+0.7, sprintf('(%.1f, %.1f)', x, y), 'Color', 'y', 'FontSize', 11, 'FontWeight', 'bold', 'BackgroundColor', [0.1, 0.1, 0.1, 0.9]);
 
-% highlight circle
+% highlight circle around selected point
 scatter(ax, x, y, 350, 'y', 'LineWidth', 3);
 end
 
 %% render 3D
 function render_3d(ax, state)
+%draws full 3D scatter plot wit all three vars
+%more complex than 2D becasue of depth perception issues
 hold(ax, 'on');
 view(ax, 3);
 
-% cube frame
+%cube frame for reference so user knows where they are
 if state.show_reference_cube
     draw_cube_frame(ax, state);
 end
 
-% grid inside cube
+%grid inside cube helps wit depth perception alot
 if state.show_grid && state.show_reference_cube
     draw_grid(ax);
 end
 
-% axis lines - always visible even without cube
+%axis lines thru origin always visible
 draw_axis_lines(ax, state);
 
-% ellipsoid drawn before deviations so its underneath
+%ellipsoid drawn before deviations so its underneath
+%shows shape of data cloud in 3D like teh 2D ellipse
 if state.show_ellipsoid
     draw_ellipsoid(ax, state.mean_vec, state.cov, state.colors.ellipse, 0.3);
 end
 
-% deviations - clickable for animation
+%deviations => clickable for animation
+%each line form point to mean can be clicked to see decomp
 if state.show_deviations
     for i = 1:length(state.I1)
         h_dev = plot3(ax, [state.I1(i), state.mean_vec(1)], [state.I2(i), state.mean_vec(2)], [state.I3(i), state.mean_vec(3)], 'Color', [state.deviation_color, 0.6], 'LineWidth', 1.5);
@@ -1081,32 +1138,37 @@ if state.show_deviations
     end
 end
 
-% component deviations - x y z separately
+%component deviations => x y z separately
+%breaks 3d deviation into three perpendicular parts
+%looks liek staircase form mean to point
 if state.show_component_deviations
     mx = state.mean_vec(1); my = state.mean_vec(2); mz = state.mean_vec(3);
     for i = 1:length(state.I1)
         x = state.I1(i); y = state.I2(i); z = state.I3(i);
+        %x component (along var1 axis)
         plot3(ax, [mx, x], [my, my], [mz, mz], 'Color', [state.colors.var1, 0.6], 'LineWidth', 2);
+        %y component (along var2 axis)
         plot3(ax, [x, x], [my, y], [mz, mz], 'Color', [state.colors.var2, 0.6], 'LineWidth', 2);
+        %z component (along var3 axis)
         plot3(ax, [x, x], [y, y], [mz, z], 'Color', [state.colors.var3, 0.6], 'LineWidth', 2);
     end
 end
 
-% points on top
+%points on top of everyting else
 h = scatter3(ax, state.I1, state.I2, state.I3, state.dot_size, state.dot_color, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 1);
 set(h, 'ButtonDownFcn', @(src,~) click_3d(ax));
 
-% mean point
+%mean point bigger and different color
 if state.show_mean
     scatter3(ax, state.mean_vec(1), state.mean_vec(2), state.mean_vec(3), 200, state.colors.mean, 'filled', 'MarkerEdgeColor', 'w', 'LineWidth', 2);
 end
 
-% selected point highlight on top
+%selected point highlight on top of everyting
 if state.selected_point_idx > 0 && state.selected_point_idx <= length(state.I1)
     draw_3d_highlight(ax, state, state.selected_point_idx);
 end
 
-% labels
+%labels and axis setup
 title(ax, '3D View', 'Color', 'w', 'FontSize', 13);
 xlabel(ax, 'Var 1', 'Color', state.colors.var1);
 ylabel(ax, 'Var 2', 'Color', state.colors.var2);
@@ -1115,7 +1177,7 @@ set(ax, 'XLim', [-10, 10], 'YLim', [-10, 10], 'ZLim', [-10, 10]);
 set(ax, 'Color', [0.05, 0.05, 0.05], 'XColor', [0.6, 0.6, 0.6], 'YColor', [0.6, 0.6, 0.6], 'ZColor', [0.6, 0.6, 0.6]);
 axis(ax, 'vis3d');
 
-% rotation mode
+%rotation mode => user can spin the plot arond
 if strcmp(state.interaction_mode, 'rotate')
     rotate3d(ax, 'on');
 else
@@ -1126,12 +1188,15 @@ hold(ax, 'off');
 end
 
 function click_3d(ax)
+%handle click on 3D scatter to select a point
+%trickier than 2D becasue we need ray casting (not jsut euclidean)
 fig = ancestor(ax, 'figure');
 state = getappdata(fig, 'state');
 
-% store current view so it doesnt reset
+%store current view so it doesnt reset after redraw
 [az, el] = view(ax);
 
+%get click as a ray in 3D space (two points form the ray)
 pt = get(ax, 'CurrentPoint');
 ray_origin = pt(1,:);
 ray_dir = pt(2,:) - pt(1,:);
@@ -1139,7 +1204,8 @@ if norm(ray_dir) > 0
     ray_dir = ray_dir / norm(ray_dir);
 end
 
-% find closest point to click ray
+%find closest point to click ray
+%loop thru all points adn find min distance to ray
 min_dist = inf; idx = 1;
 for i = 1:length(state.I1)
     p = [state.I1(i), state.I2(i), state.I3(i)];
@@ -1153,7 +1219,7 @@ for i = 1:length(state.I1)
     end
 end
 
-% toggle - click same point to clear
+%toggle => click same point to clear
 if idx == state.selected_point_idx
     state.selected_point_idx = -1;
 else
@@ -1170,14 +1236,14 @@ drawnow;
 end
 
 function click_deviation_3d(fig, idx)
-% clicked a 3D deviation - animate decomposition
+%clicked a 3D deviation => animate decomposition into xyz
 state = getappdata(fig, 'state');
 
 if state.animating
     return;
 end
 
-% store view
+%store view so we can restor after animation
 [az, el] = view(state.ax_main);
 
 state.animating = true;
@@ -1185,14 +1251,16 @@ setappdata(fig, 'state', state);
 
 animate_deviation_decomposition_3d(state.ax_main, idx, state, az, el);
 
-% done
+%done animating
 state = getappdata(fig, 'state');
 state.animating = false;
 setappdata(fig, 'state', state);
 end
 
 function animate_deviation_decomposition_3d(ax, idx, state, az, el)
-% animate 3D deviation breaking into x y z components
+%animate 3D deviation breaking into x y z components
+%similar to 2D but with 3 planes instead of 2 lines
+%also more complex visually becasue of the planes
 mx = state.mean_vec(1); my = state.mean_vec(2); mz = state.mean_vec(3);
 x = state.I1(idx); y = state.I2(idx); z = state.I3(idx);
 
@@ -1202,7 +1270,8 @@ view(ax, az, el);
 
 pause_time = 0.03;
 
-% phase 1: show original 3D euclidean deviation
+%phase 1 => show original 3D euclidean deviation
+%highlight teh total distance form point to mean
 for frame = 1:15
     cla(ax);
     hold(ax, 'on');
@@ -1233,7 +1302,8 @@ for frame = 1:15
     pause(pause_time);
 end
 
-% phase 2: transform mean into 3 planes
+%phase 2 => transform mean into 3 planes
+%mean point fades adn becomes 3 orthogonal planes (one per var)
 for frame = 1:15
     cla(ax);
     hold(ax, 'on');
@@ -1243,16 +1313,16 @@ for frame = 1:15
     % faded points
     scatter3(ax, state.I1, state.I2, state.I3, state.dot_size*0.3, [0.2, 0.2, 0.2], 'filled', 'MarkerEdgeAlpha', 0.2);
 
-    % mean shrinking
+    % mean shrinking as planes grow
     point_size = 150 * (1 - alpha);
     if point_size > 5
         scatter3(ax, mx, my, mz, point_size, state.colors.mean, 'filled', 'MarkerEdgeAlpha', 1-alpha);
     end
 
-    % three perpendicular planes growing
+    % three perpendicular planes growing outward
     extent = 10 * alpha;
 
-    % YZ plane at mean X
+    % YZ plane at mean X (perpendicular to x axis)
     [YY, ZZ] = meshgrid(my + [-extent, extent], mz + [-extent, extent]);
     XX = mx * ones(size(YY));
     surf(ax, XX, YY, ZZ, 'FaceColor', state.colors.var1, 'FaceAlpha', 0.3*alpha, 'EdgeColor', 'none', 'PickableParts', 'none', 'HitTest', 'off');
@@ -1280,7 +1350,7 @@ for frame = 1:15
     pause(pause_time);
 end
 
-% phase 3: show x y z component deviations
+%phase 3 => show x y z component deviations with labels
 for frame = 1:20
     cla(ax);
     hold(ax, 'on');
@@ -1342,7 +1412,7 @@ end
 
 pause(1.5);
 
-% go back to normal view, keep angle
+%go back to normal view but keep angle
 fig = ancestor(ax, 'figure');
 state = getappdata(fig, 'state');
 update_display(fig);
@@ -1351,24 +1421,28 @@ drawnow;
 end
 
 function draw_3d_highlight(ax, state, idx)
+%draws highlight for selected point in 3D
+%shows colored lines to each axis plane (liek 2D but wit 3 lines)
 x = state.I1(idx); y = state.I2(idx); z = state.I3(idx);
 
-% colored lines to axis planes
+%lines form point to each of teh 3 axis planes
+%color coded by wich axis its projecting to
 plot3(ax, [x, x], [y, y], [-10, z], 'Color', state.colors.var3, 'LineWidth', 3, 'LineStyle', '-');
 plot3(ax, [x, x], [-10, y], [z, z], 'Color', state.colors.var2, 'LineWidth', 3, 'LineStyle', '-');
 plot3(ax, [-10, x], [y, y], [z, z], 'Color', state.colors.var1, 'LineWidth', 3, 'LineStyle', '-');
 
-% markers on axis planes
+%dots on axis planes where lines intersect
 scatter3(ax, x, y, -10, 150, state.colors.var3, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
 scatter3(ax, x, -10, z, 150, state.colors.var2, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
 scatter3(ax, -10, y, z, 150, state.colors.var1, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 2);
 
-% axis projection labels
+%axis projection labels showing teh coordinate values
 text(ax, x, y, -11, sprintf('%.1f', z), 'Color', state.colors.var3, 'FontSize', 10, 'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'BackgroundColor', [0.1, 0.1, 0.1, 0.9]);
 text(ax, x, -11, z, sprintf('%.1f', y), 'Color', state.colors.var2, 'FontSize', 10, 'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'BackgroundColor', [0.1, 0.1, 0.1, 0.9]);
 text(ax, -11, y, z, sprintf('%.1f', x), 'Color', state.colors.var1, 'FontSize', 10, 'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'BackgroundColor', [0.1, 0.1, 0.1, 0.9]);
 
-% point coord label with colored values - built up piece by piece
+%point coord label wit colored values
+%each coordinate colored by its variable color (looks nicer)
 label_str = '(';
 text(ax, x+0.5, y+0.5, z+1.8, label_str, 'Color', 'w', 'FontSize', 11, 'FontWeight', 'bold', 'BackgroundColor', [0.1, 0.1, 0.1, 0.9], 'Interpreter', 'none');
 
@@ -1385,26 +1459,31 @@ end
 
 %% render PCA
 function render_pca(ax, state)
+%draws 3D view with principal component axes overlaid
+%this is teh main PCA visualization where magic happens
 hold(ax, 'on');
 view(ax, 3);
 
-% cube frame
+%cube frame for spatial reference
 if state.show_reference_cube
     draw_cube_frame(ax, state);
 end
 
-% grid
+%grid helps see depth
 if state.show_grid && state.show_reference_cube
     draw_grid(ax);
 end
 
-% axis lines always visible
+%axis lines always visible
 draw_axis_lines(ax, state);
 
-% points - color by PC1 score if enabled
+%points => color by PC1 score if enabled
+%project each point onto PC1 axis to get its score
 pc1_scores = ([state.I1, state.I2, state.I3] - state.mean_vec) * state.eigenvectors(:,1);
 if state.color_by_pc1 && state.pca_step >= 2
+    %normalize scores to 0+1 range for coloring
     pc1_norm = (pc1_scores - min(pc1_scores)) / (max(pc1_scores) - min(pc1_scores) + 0.001);
+    %red for high scores blue for low (gradient)
     colors_map = [pc1_norm, 0.3*ones(size(pc1_norm)), 1-pc1_norm];
     h = scatter3(ax, state.I1, state.I2, state.I3, state.dot_size, colors_map, 'filled', 'MarkerEdgeColor', 'w');
 else
@@ -1422,16 +1501,18 @@ if state.pca_step >= 1 && state.show_ellipsoid
     draw_ellipsoid(ax, state.mean_vec, state.cov, state.colors.ellipse, 0.25);
 end
 
-% PC axes with spread indicators showing eigenvalue magnitude
+%PC axes wit spread indicators showing eigenvalue magnitude
+%eigenvector direction gives axis, eigenvalue magnitude (as sqrt for sd)
 scale = 2;
 if state.pca_step >= 2
+    %PC1 arrow direction scaled by sqrt of eigenvalue
     dir1 = state.eigenvectors(:,1)' * sqrt(state.eigenvalues(1)) * scale;
-    % dashed axis line
+    %dashed line extending full axis
     plot3(ax, state.mean_vec(1) + [-8,8]*state.eigenvectors(1,1), state.mean_vec(2) + [-8,8]*state.eigenvectors(2,1), state.mean_vec(3) + [-8,8]*state.eigenvectors(3,1), 'Color', [state.colors.pc1, 0.3], 'LineWidth', 1, 'LineStyle', '--');
-    % arrow
+    %arrow showing direction
     quiver3(ax, state.mean_vec(1), state.mean_vec(2), state.mean_vec(3), dir1(1), dir1(2), dir1(3), 'Color', state.colors.pc1, 'LineWidth', 5, 'MaxHeadSize', 0.8, 'AutoScale', 'off');
 
-    % spread indicator - thick line showing data spread along PC1
+    %spread indicator => thick line showing 1 sd of spread
     spread = sqrt(state.eigenvalues(1));
     plot3(ax, state.mean_vec(1) + [-spread, spread]*state.eigenvectors(1,1), ...
           state.mean_vec(2) + [-spread, spread]*state.eigenvectors(2,1), ...
@@ -1442,12 +1523,13 @@ if state.pca_step >= 2
     text(ax, ep1(1), ep1(2), ep1(3), sprintf('PC1 %.1f%%', state.var_exp(1)), 'Color', state.colors.pc1, 'FontSize', 9, 'FontWeight', 'bold');
 end
 
+%PC2 shown at step 3
 if state.pca_step >= 3
     dir2 = state.eigenvectors(:,2)' * sqrt(state.eigenvalues(2)) * scale;
     plot3(ax, state.mean_vec(1) + [-6,6]*state.eigenvectors(1,2), state.mean_vec(2) + [-6,6]*state.eigenvectors(2,2), state.mean_vec(3) + [-6,6]*state.eigenvectors(3,2), 'Color', [state.colors.pc2, 0.3], 'LineWidth', 1, 'LineStyle', '--');
     quiver3(ax, state.mean_vec(1), state.mean_vec(2), state.mean_vec(3), dir2(1), dir2(2), dir2(3), 'Color', state.colors.pc2, 'LineWidth', 4, 'MaxHeadSize', 0.8, 'AutoScale', 'off');
 
-    % spread indicator for PC2
+    %spread indicator for PC2 (shorter than PC1 usally)
     spread2 = sqrt(state.eigenvalues(2));
     plot3(ax, state.mean_vec(1) + [-spread2, spread2]*state.eigenvectors(1,2), ...
           state.mean_vec(2) + [-spread2, spread2]*state.eigenvectors(2,2), ...
@@ -1458,12 +1540,13 @@ if state.pca_step >= 3
     text(ax, ep2(1), ep2(2), ep2(3), sprintf('PC2 %.1f%%', state.var_exp(2)), 'Color', state.colors.pc2, 'FontSize', 9, 'FontWeight', 'bold');
 end
 
+%PC3 shown at step 4 (smallest variance usally)
 if state.pca_step >= 4
     dir3 = state.eigenvectors(:,3)' * sqrt(state.eigenvalues(3)) * scale;
     plot3(ax, state.mean_vec(1) + [-4,4]*state.eigenvectors(1,3), state.mean_vec(2) + [-4,4]*state.eigenvectors(2,3), state.mean_vec(3) + [-4,4]*state.eigenvectors(3,3), 'Color', [state.colors.pc3, 0.3], 'LineWidth', 1, 'LineStyle', '--');
     quiver3(ax, state.mean_vec(1), state.mean_vec(2), state.mean_vec(3), dir3(1), dir3(2), dir3(3), 'Color', state.colors.pc3, 'LineWidth', 3, 'MaxHeadSize', 0.8, 'AutoScale', 'off');
 
-    % spread indicator for PC3
+    %spread indicator for PC3 (shortest usally)
     spread3 = sqrt(state.eigenvalues(3));
     plot3(ax, state.mean_vec(1) + [-spread3, spread3]*state.eigenvectors(1,3), ...
           state.mean_vec(2) + [-spread3, spread3]*state.eigenvectors(2,3), ...
@@ -1474,7 +1557,8 @@ if state.pca_step >= 4
     text(ax, ep3(1), ep3(2), ep3(3), sprintf('PC3 %.1f%%', state.var_exp(3)), 'Color', state.colors.pc3, 'FontSize', 9, 'FontWeight', 'bold');
 end
 
-% projections - perpendicular drop from each point to PC axis
+%projections => perpendicular drop from each point to PC axis
+%shows how far each point is form the PC line (residual)
 if state.show_pc_projections && state.pca_step >= 2
     n_pcs = min(state.pca_step - 1, 3);
 
@@ -1482,10 +1566,13 @@ if state.show_pc_projections && state.pca_step >= 2
         pt = [state.I1(i), state.I2(i), state.I3(i)];
 
         for pc = 1:n_pcs
+            %dot product gives distance along PC axis
             pc_score = dot(pt - state.mean_vec, state.eigenvectors(:,pc)');
+            %projected point on teh axis
             proj = state.mean_vec + pc_score * state.eigenvectors(:,pc)';
 
             pc_colors = [state.colors.pc1; state.colors.pc2; state.colors.pc3];
+            %draw line form point to its projection
             plot3(ax, [pt(1), proj(1)], [pt(2), proj(2)], [pt(3), proj(3)], ...
                   'Color', [pc_colors(pc,:), 0.6], 'LineWidth', 1.5);
         end
@@ -1517,11 +1604,12 @@ hold(ax, 'off');
 end
 
 function animate_pca_variance(fig, old_step, new_step)
-% animate when stepping through pca - shows variance bars growing
+%animate when stepping through pca => shows variance bars growing
+%this runs whenn user clicks thru teh PCA steps
 state = getappdata(fig, 'state');
 ax = state.ax_main;
 
-% store view
+%store view so we can restor after animation
 [az, el] = view(ax);
 
 cla(ax, 'reset');
@@ -1540,9 +1628,11 @@ if pc_idx >= 1 && pc_idx <= 3
     pc_color = [state.colors.pc1; state.colors.pc2; state.colors.pc3];
     pc_col = pc_color(pc_idx, :);
 
-    % projections onto this PC
+    %projections onto this PC
+    %dot product of centered data wit eigenvector
     pc_scores = ([state.I1, state.I2, state.I3] - state.mean_vec) * state.eigenvectors(:, pc_idx);
 
+    %loop thru frames showing points projecting onto axis
     for frame = 1:n_frames
         cla(ax);
         hold(ax, 'on');
@@ -1620,56 +1710,66 @@ end
 
 %% helpers
 function draw_cube_frame(ax, state)
-% cube edges
-c = [0.5, 0.5, 0.5]; lw = 1.2;
+%draws wireframe cube as spatial reference
+%helps user undersand 3D position of points
+%wit out this its hard to tell where stuff is in space
+c = [0.5, 0.5, 0.5]; lw = 1.2;  %gray color adn line width
 
-% bottom
+%bottom face edges => 4 lines forming square at z = +10
 plot3(ax, [-10, 10], [-10, -10], [-10, -10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [-10, -10], [-10, 10], [-10, -10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [10, 10], [-10, 10], [-10, -10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [-10, 10], [10, 10], [-10, -10], 'Color', c, 'LineWidth', lw);
 
-% top
+%top face => same as bottom but at z = +10
 plot3(ax, [-10, 10], [-10, -10], [10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [-10, -10], [-10, 10], [10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [10, 10], [-10, 10], [10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [-10, 10], [10, 10], [10, 10], 'Color', c, 'LineWidth', lw);
 
-% vertical edges
+%vertical edges => connect top adn bottom corners
 plot3(ax, [-10, -10], [-10, -10], [-10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [10, 10], [-10, -10], [-10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [-10, -10], [10, 10], [-10, 10], 'Color', c, 'LineWidth', lw);
 plot3(ax, [10, 10], [10, 10], [-10, 10], 'Color', c, 'LineWidth', lw);
 
-% tick labels
+%tick labels along each axis
+%skip zero here becasue we add it seperate in white
 for v = [-10, -5, 5, 10]
     text(ax, v, -10.8, -10.8, sprintf('%d', v), 'Color', [0.6, 0.6, 0.6], 'FontSize', 8, 'HorizontalAlignment', 'center');
     text(ax, -10.8, v, -10.8, sprintf('%d', v), 'Color', [0.6, 0.6, 0.6], 'FontSize', 8, 'HorizontalAlignment', 'center');
     text(ax, -10.8, -10.8, v, sprintf('%d', v), 'Color', [0.6, 0.6, 0.6], 'FontSize', 8, 'HorizontalAlignment', 'center');
 end
+%origin label in white so it stands out
 text(ax, 0, -10.8, -10.8, '0', 'Color', [1, 1, 1], 'FontSize', 9, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
 end
 
 function draw_axis_lines(ax, state)
-% axis lines thru origin - always visible
+%draws x y z axis lines thru origin
+%can be colored by variable or jsut plain white
 if state.color_axes_by_var
+    %colored axes => matches variable colors form teh sliders
     plot3(ax, [-10, 10], [0, 0], [0, 0], 'Color', state.colors.var1, 'LineWidth', 2.5);
     plot3(ax, [0, 0], [-10, 10], [0, 0], 'Color', state.colors.var2, 'LineWidth', 2.5);
     plot3(ax, [0, 0], [0, 0], [-10, 10], 'Color', state.colors.var3, 'LineWidth', 2.5);
 else
+    %white axes => simpler look
     plot3(ax, [-10, 10], [0, 0], [0, 0], 'Color', [1, 1, 1], 'LineWidth', 2);
     plot3(ax, [0, 0], [-10, 10], [0, 0], 'Color', [1, 1, 1], 'LineWidth', 2);
     plot3(ax, [0, 0], [0, 0], [-10, 10], 'Color', [1, 1, 1], 'LineWidth', 2);
 end
 
-% origin dot
+%origin dot => big white circle at 0,0,0
 scatter3(ax, 0, 0, 0, 80, 'w', 'filled', 'MarkerEdgeColor', 'k');
 end
 
 function draw_grid(ax)
-c = [0.4, 0.4, 0.4]; lw = 0.5;
+%draws grid lines inside cube for depth perception
+%makes it easier ot see where points are in 3D space
+c = [0.4, 0.4, 0.4]; lw = 0.5;  %dark gray, thin lines
 
-% horizontal grids at multiple Z levels
+%horizontal grids at multiple Z levels
+%these are liek floors at diferent heights
 for z = -10:5:10
     for v = -10:5:10
         plot3(ax, [-10,10], [v,v], [z,z], 'Color', c, 'LineWidth', lw);
@@ -1677,13 +1777,15 @@ for z = -10:5:10
     end
 end
 
-% vertical grids
+%vertical grids => walls of teh cube
+%first set parallel to x axis
 for y = -10:5:10
     for v = -10:5:10
         plot3(ax, [v,v], [y,y], [-10,10], 'Color', c, 'LineWidth', lw);
     end
 end
 
+%second set parallel ot y axis
 for x = -10:5:10
     for v = -10:5:10
         plot3(ax, [x,x], [v,v], [-10,10], 'Color', c, 'LineWidth', lw);
@@ -1692,32 +1794,42 @@ end
 end
 
 function plot_ellipse(ax, center, cov_matrix, color)
-% 2D ellipse from covariance matrix
-if all(diag(cov_matrix) < 0.001), return; end
-[V, D] = eig(cov_matrix);
-D(D < 0.001) = 0.001;
+%2D ellipse form covariance matrix
+%eigenvectors give orientaton, eigenvalues give axis lengths
+%this shows teh shape of teh data cloud in 2D
+if all(diag(cov_matrix) < 0.001), return; end  %skip if no variance
+[V, D] = eig(cov_matrix);  %V = directions, D = stretching
+D(D < 0.001) = 0.001;  %avoid zero eigenvalues
+%parametric ellipse => unit circle stretched by sqrt(D) adn rotated by V
+%factor of 2 gives us 2 sigma boundary
 theta = linspace(0, 2*pi, 100);
 ellipse = 2 * V * sqrt(D) * [cos(theta); sin(theta)];
 plot(ax, ellipse(1,:) + center(1), ellipse(2,:) + center(2), 'Color', color, 'LineWidth', 2.5);
 end
 
 function draw_ellipsoid(ax, center, cov_matrix, color, alpha)
-% 3D ellipsoid from covariance - shows shape of data cloud
-if all(diag(cov_matrix) < 0.001), return; end
+%3D ellipsoid form covariance => shows shape of data cloud
+%same idea as 2D ellipse but in 3D
+if all(diag(cov_matrix) < 0.001), return; end  %skip if degenerate
 
-[V, D] = eig(cov_matrix);
-D(D < 0.001) = 0.001;
+[V, D] = eig(cov_matrix);  %eigenvectors adn eigenvalues
+D(D < 0.001) = 0.001;  %clamp small values
 
-% higher res sphere
+%start wit unit sphere then transform by eigenvectors
+%sphere(30) gives us a nice mesh resolution
 [X, Y, Z] = sphere(30);
 sphere_points = [X(:)'; Y(:)'; Z(:)'];
+%stretch sphere along eigenvector directions
+%2 * sqrt(D) gives 2 sigma in each direction
 ellipsoid_points = 2 * V * sqrt(D) * sphere_points;
 
+%reshape back ot grid form for mesh plot
 X_ell = reshape(ellipsoid_points(1,:) + center(1), size(X));
 Y_ell = reshape(ellipsoid_points(2,:) + center(2), size(Y));
 Z_ell = reshape(ellipsoid_points(3,:) + center(3), size(Z));
 
-% use mesh to show grid structure - reveals shape better
+%use mesh to show grid structure => reveals shape beter than surf
+%pickableparts off so we can click thru it to points
 mesh(ax, X_ell, Y_ell, Z_ell, ...
      'FaceColor', color, ...
      'FaceAlpha', alpha, ...
@@ -1730,25 +1842,29 @@ end
 
 %% help window
 function open_help_window(main_fig)
-% help window with dark theme
+%help window wit dark theme
+%has multiple tabs for diferent topics
 
-% check if already exists
+%check if already exists => dont open duplicates
 existing = findobj('Type', 'figure', 'Tag', 'pca_help_window');
 if ~isempty(existing)
-    figure(existing);
+    figure(existing);  %jsut bring it to front
     return;
 end
 
+%create teh help window
 help_fig = figure('Name', 'PCA Builder Help', 'Tag', 'pca_help_window', ...
     'NumberTitle', 'off', 'MenuBar', 'none', 'ToolBar', 'none', ...
     'Color', [0.1, 0.1, 0.1], 'Position', [200, 100, 600, 500]);
 
+%tabgroup for diferent help sections
 tab_group = uitabgroup(help_fig, 'Units', 'normalized', 'Position', [0, 0, 1, 1]);
 
+%colors for dark theme
 tab_bg = [0.12, 0.12, 0.12];
 text_color = [0.9, 0.9, 0.9];
 
-%% tab 1: welcome
+%% tab 1: welcome => intro and authro info
 tab0 = uitab(tab_group, 'Title', 'Welcome', 'BackgroundColor', tab_bg);
 welcome_text = sprintf([...
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' ...
@@ -1798,7 +1914,7 @@ welcome_text = sprintf([...
     '                                      - Sacha Bechara\n']);
 create_scrollable_text(tab0, welcome_text, text_color, tab_bg);
 
-%% tab 2: concepts
+%% tab 2: concepts => stats background
 tab1 = uitab(tab_group, 'Title', 'Concepts', 'BackgroundColor', tab_bg);
 concepts_text = sprintf([...
     'STATISTICAL CONCEPTS\n\n' ...
@@ -1844,7 +1960,7 @@ concepts_text = sprintf([...
     'Shown as colored arrows in 3D view.\n']);
 create_scrollable_text(tab1, concepts_text, text_color, tab_bg);
 
-%% tab 3: controls
+%% tab 3: controls => explains UI elements
 tab2 = uitab(tab_group, 'Title', 'Controls', 'BackgroundColor', tab_bg);
 controls_text = sprintf([...
     'UI CONTROLS GUIDE\n\n' ...
@@ -1920,7 +2036,7 @@ controls_text = sprintf([...
     '• All: Show all components at once\n']);
 create_scrollable_text(tab2, controls_text, text_color, tab_bg);
 
-%% tab 4: navigation
+%% tab 4: navigation => 3D view controls
 tab3 = uitab(tab_group, 'Title', 'Navigation', 'BackgroundColor', tab_bg);
 nav_text = sprintf([...
     '3D NAVIGATION\n\n' ...
@@ -1954,11 +2070,11 @@ nav_text = sprintf([...
     'These help visualize pairwise correlations.\n']);
 create_scrollable_text(tab3, nav_text, text_color, tab_bg);
 
-%% tab 5: try this
+%% tab 5: try this => preset scenarios
 tab4 = uitab(tab_group, 'Title', 'Try This', 'BackgroundColor', tab_bg);
 create_scenarios_panel(tab4, main_fig, text_color, tab_bg);
 
-%% tab 6: citation
+%% tab 6: citation => how to cite
 tab5 = uitab(tab_group, 'Title', 'Citation', 'BackgroundColor', tab_bg);
 citation_text = sprintf([...
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' ...
@@ -2008,21 +2124,23 @@ create_scrollable_text(tab5, citation_text, text_color, tab_bg);
 end
 
 function create_scrollable_text(parent, content, text_color, bg_color)
-% scrollable text area
+%scrollable text area for help content
+%usaully long text so needs scrolling
 
-% try java scroll first, fallback to simple text
+%try listbox first becasue it scrolls
+%fallback to simple text if taht fails
 try
-    % listbox styled as text - allows scrolling
+    %listbox styled as text => allows scrolling
     lines = strsplit(content, '\n');
     uicontrol('Parent', parent, 'Style', 'listbox', ...
         'String', lines, ...
         'Units', 'normalized', 'Position', [0.02, 0.02, 0.96, 0.96], ...
         'BackgroundColor', bg_color, 'ForegroundColor', text_color, ...
         'FontName', 'Consolas', 'FontSize', 10, ...
-        'Enable', 'inactive', ...  % prevents selection highlight
-        'Max', 2, 'Min', 0);  % enables scrolling
+        'Enable', 'inactive', ...  %prevents selection hilight
+        'Max', 2, 'Min', 0);  %enables scrolling
 catch
-    % fallback to simple text
+    %fallback to simple text if listbox doesnt work
     uicontrol('Parent', parent, 'Style', 'text', ...
         'String', content, ...
         'Units', 'normalized', 'Position', [0.02, 0.02, 0.96, 0.96], ...
@@ -2033,8 +2151,10 @@ end
 end
 
 function create_scenarios_panel(parent, main_fig, text_color, bg_color)
-% preset scenarios panel
+%preset scenarios panel
+%lets user load example configs to see diferent PCA cases
 
+%each row: name, description, params struct
 scenarios = {
     'Uncorrelated Equal', 'All variables independent with equal spread', ...
         struct('mean1',0,'mean2',0,'mean3',0,'sd1',2,'sd2',2,'sd3',2,'r12',0,'r13',0,'r23',0);
@@ -2055,17 +2175,17 @@ scenarios = {
         struct('mean1',3,'mean2',-2,'mean3',1,'sd1',1.5,'sd2',2,'sd3',1,'r12',0.5,'r13',0.3,'r23',-0.4);
 };
 
-% header
+%header text at top
 uicontrol('Parent', parent, 'Style', 'text', ...
     'String', 'PRESET SCENARIOS - Click LOAD to apply', ...
     'Units', 'normalized', 'Position', [0.02, 0.92, 0.96, 0.06], ...
     'BackgroundColor', bg_color, 'ForegroundColor', [0.4, 0.8, 1], ...
     'FontSize', 12, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
 
-% scenario buttons
+%create buttons for each scenario
 n_scenarios = size(scenarios, 1);
-y_start = 0.85;
-y_step = 0.14;
+y_start = 0.85;  %start postion
+y_step = 0.14;   %spacing between panels
 
 for i = 1:n_scenarios
     y_pos = y_start - (i-1) * y_step;
@@ -2073,27 +2193,27 @@ for i = 1:n_scenarios
     desc = scenarios{i, 2};
     params = scenarios{i, 3};
 
-    % scenario panel
+    %panel for this scenario
     panel = uipanel('Parent', parent, 'Units', 'normalized', ...
         'Position', [0.02, y_pos - 0.12, 0.96, 0.13], ...
         'BackgroundColor', [0.15, 0.15, 0.15], 'BorderType', 'line', ...
         'HighlightColor', [0.3, 0.3, 0.3]);
 
-    % name label
+    %name label in gold color
     uicontrol('Parent', panel, 'Style', 'text', ...
         'String', name, ...
         'Units', 'normalized', 'Position', [0.02, 0.55, 0.65, 0.4], ...
         'BackgroundColor', [0.15, 0.15, 0.15], 'ForegroundColor', [1, 0.9, 0.5], ...
         'FontSize', 11, 'FontWeight', 'bold', 'HorizontalAlignment', 'left');
 
-    % description
+    %description text below name
     uicontrol('Parent', panel, 'Style', 'text', ...
         'String', desc, ...
         'Units', 'normalized', 'Position', [0.02, 0.1, 0.65, 0.45], ...
         'BackgroundColor', [0.15, 0.15, 0.15], 'ForegroundColor', text_color, ...
         'FontSize', 9, 'HorizontalAlignment', 'left');
 
-    % load button
+    %load button => applies these params to main fig
     uicontrol('Parent', panel, 'Style', 'pushbutton', ...
         'String', 'LOAD', ...
         'Units', 'normalized', 'Position', [0.75, 0.2, 0.22, 0.6], ...
@@ -2104,27 +2224,28 @@ end
 end
 
 function load_scenario(fig, params)
-% apply preset params to main fig
+%apply preset params to main fig
+%called when user clicks LOAD button
 
 if ~isvalid(fig)
     errordlg('Main window was closed. Please restart PCA Builder.', 'Error');
     return;
 end
 
-% get current state
+%get current state form figure
 state = getappdata(fig, 'state');
 if isempty(state)
     return;
 end
 
-% apply params
+%apply params form preset => loop thru all fields
 fields = fieldnames(params);
 for i = 1:length(fields)
     state.(fields{i}) = params.(fields{i});
 end
 
-% update sliders - same pattern as update_param
-% mean sliders
+%update sliders to match new values
+%mean sliders
 slider = findobj(fig, 'Tag', 'mean1_slider');
 if ~isempty(slider), set(slider, 'Value', state.mean1); end
 slider = findobj(fig, 'Tag', 'mean2_slider');
@@ -2132,7 +2253,7 @@ if ~isempty(slider), set(slider, 'Value', state.mean2); end
 slider = findobj(fig, 'Tag', 'mean3_slider');
 if ~isempty(slider), set(slider, 'Value', state.mean3); end
 
-% sd sliders
+%sd sliders
 slider = findobj(fig, 'Tag', 'sd1_slider');
 if ~isempty(slider), set(slider, 'Value', state.sd1); end
 slider = findobj(fig, 'Tag', 'sd2_slider');
@@ -2140,7 +2261,7 @@ if ~isempty(slider), set(slider, 'Value', state.sd2); end
 slider = findobj(fig, 'Tag', 'sd3_slider');
 if ~isempty(slider), set(slider, 'Value', state.sd3); end
 
-% correlation sliders
+%correlation sliders
 slider = findobj(fig, 'Tag', 'corr12_slider');
 if ~isempty(slider), set(slider, 'Value', state.r12); end
 slider = findobj(fig, 'Tag', 'corr13_slider');
@@ -2148,8 +2269,8 @@ if ~isempty(slider), set(slider, 'Value', state.r13); end
 slider = findobj(fig, 'Tag', 'corr23_slider');
 if ~isempty(slider), set(slider, 'Value', state.r23); end
 
-% update value labels
-% mean labels
+%update value labels so user sees teh new numbers
+%mean labels
 label = findobj(fig, 'Tag', 'mean1_val');
 if ~isempty(label), set(label, 'String', sprintf('%.1f', state.mean1)); end
 label = findobj(fig, 'Tag', 'mean2_val');
@@ -2157,7 +2278,7 @@ if ~isempty(label), set(label, 'String', sprintf('%.1f', state.mean2)); end
 label = findobj(fig, 'Tag', 'mean3_val');
 if ~isempty(label), set(label, 'String', sprintf('%.1f', state.mean3)); end
 
-% sd labels
+%sd labels
 label = findobj(fig, 'Tag', 'sd1_val');
 if ~isempty(label), set(label, 'String', sprintf('%.1f', state.sd1)); end
 label = findobj(fig, 'Tag', 'sd2_val');
@@ -2165,7 +2286,7 @@ if ~isempty(label), set(label, 'String', sprintf('%.1f', state.sd2)); end
 label = findobj(fig, 'Tag', 'sd3_val');
 if ~isempty(label), set(label, 'String', sprintf('%.1f', state.sd3)); end
 
-% correlation labels
+%correlation labels
 label = findobj(fig, 'Tag', 'corr12_val');
 if ~isempty(label), set(label, 'String', sprintf('%.2f', state.r12)); end
 label = findobj(fig, 'Tag', 'corr13_val');
@@ -2173,7 +2294,7 @@ if ~isempty(label), set(label, 'String', sprintf('%.2f', state.r13)); end
 label = findobj(fig, 'Tag', 'corr23_val');
 if ~isempty(label), set(label, 'String', sprintf('%.2f', state.r23)); end
 
-% regen data and update - same as update_param
+%regen data wit new params adn update display
 state = generate_data(state);
 setappdata(fig, 'state', state);
 update_display(fig);
