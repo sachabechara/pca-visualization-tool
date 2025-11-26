@@ -11,10 +11,10 @@ Interactive MATLAB tool for learning Principal Component Analysis through hands-
 
 **Alternative access:**
 - [![View pca-visualization-tool on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://uk.mathworks.com/matlabcentral/fileexchange/182689-pca-visualization-tool)
-*Requires free MathWorks account* or University account (when rpompted to login, insert your @universityname email
+*Requires free MathWorks account* or University account (when prompted to login, insert your @universityname email to access Mathlab for free)
 
 For individuals who have never used mahtlab before:
-ONCE you are in mahtlab online (or runned locally), in the COMMAND TAB, type 'pca_builder' and it will open the vizualisation.
+ONCE you are in mahtlab online (or runned locally), in the COMMAND TAB, type 'pca_builder' and it will open the visualization.
 ---
 
 ## What is this?
