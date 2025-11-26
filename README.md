@@ -4,6 +4,19 @@ Interactive MATLAB tool for learning Principal Component Analysis through hands-
 
 ![Main Interface](images/shot01.png)
 
+## Quick Access
+
+**One-click launch in MATLAB Online:**  
+[![Open in MATLAB Online](https://www.mathworks.com/images/responsive/global/open-in-matlab-online.svg)](https://matlab.mathworks.com/open/fileexchange/v1?id=182686)
+
+**Alternative access:**
+- [MATLAB File Exchange](https://uk.mathworks.com/matlabcentral/fileexchange/182686-pca-visualization-tool) - Download or rate
+- [MATLAB Drive folder](https://drive.mathworks.com/sharing/a0c10730-3174-49c7-ae6e-f63b8f4355fa) - View files
+
+*Requires free MathWorks account*
+
+---
+
 ## What is this?
 
 PCA is typically taught with formulas and static diagrams. This tool lets you manipulate parameters and immediately see how correlations affect data structure, how principal components emerge, and why they capture variance in specific directions.
@@ -21,24 +34,33 @@ Built for students learning multivariate statistics, educators teaching PCA, or 
 
 ![Help System](images/shothelptab.png)
 
+---
+
 ## Installation & Usage
 
-### If you have MATLAB
+### Option 1: One-Click (Recommended)
+
+Click the "Open in MATLAB Online" badge above - it will launch directly in your browser.
+
+### Option 2: Manual Installation
+
+**If you have MATLAB:**
 
 Download `pca_builder.m` and run it:
 ```matlab
 pca_builder
 ```
 
-### If you don't have MATLAB
+**If you don't have MATLAB:**
 
-Use MATLAB Online (free, browser-based):
+1. Create free account at [matlab.mathworks.com](https://matlab.mathworks.com)
+2. Download `pca_builder.m` from [File Exchange](https://uk.mathworks.com/matlabcentral/fileexchange/182686-pca-visualization-tool)
+3. Upload to MATLAB Online
+4. Run: `pca_builder`
 
-1. Create account at [matlab.mathworks.com](https://matlab.mathworks.com)
-2. Upload `pca_builder.m`
-3. Run: `pca_builder`
+Free tier provides 20 hours/month.
 
-The free tier provides 20 hours/month.
+---
 
 ## How to use
 
@@ -48,6 +70,8 @@ Use ROTATE mode to adjust view angles, SELECT mode to click points and deviation
 
 Try setting all correlations to 0.99 to see data collapse onto a line, or to 0 to see a spherical cloud. The "Try This" tab in the help window has preset scenarios.
 
+---
+
 ## Why this exists
 
 I learned PCA twice - once in second year during independent research, again in third year coursework. The confusion often stems from lacking geometric intuition about variance, standard deviation, and how these concepts extend to multiple dimensions.
@@ -55,6 +79,8 @@ I learned PCA twice - once in second year during independent research, again in 
 This tool won't teach linear algebra from scratch, but aims to make the geometric relationships visual and manipulable. PCA requires thinking in multiple dimensions, which is conceptually challenging. Hopefully this makes it slightly easier.
 
 For deeper understanding of the underlying math, I recommend 3Blue1Brown's linear algebra series on YouTube.
+
+---
 
 ## Citation
 
@@ -64,7 +90,8 @@ If you use this in teaching or research:
 ```
 Bechara, S. (2024). PCA Builder & Visualization: An Interactive Tool 
   for Understanding Principal Component Analysis [Computer software]. 
-  https://github.com/sachabechara/pca-visualization-tool
+  MATLAB Central File Exchange. Retrieved from 
+  https://www.mathworks.com/matlabcentral/fileexchange/182686
 ```
 
 **BibTeX:**
@@ -74,9 +101,12 @@ Bechara, S. (2024). PCA Builder & Visualization: An Interactive Tool
   title = {PCA Builder \& Visualization: An Interactive Tool for 
            Understanding Principal Component Analysis},
   year = {2024},
-  url = {https://github.com/sachabechara/pca-visualization-tool}
+  publisher = {MATLAB Central File Exchange},
+  url = {https://www.mathworks.com/matlabcentral/fileexchange/182686}
 }
 ```
+
+---
 
 ## Screenshots
 
@@ -120,17 +150,24 @@ Bechara, S. (2024). PCA Builder & Visualization: An Interactive Tool
 
 </details>
 
+---
+
 ## Contributing
 
 Bug reports, feature requests, and improvements welcome. Open an issue or submit a pull request.
+
+---
 
 ## License
 
 MIT License - free to use and modify. If you improve it, consider contributing back.
 
-## Author
+---
 
-Sacha Bechara  
-[github.com/sachabechara](https://github.com/sachabechara)
+## Links
+
+- **GitHub Repository:** https://github.com/sachabechara/pca-visualization-tool
+- **MATLAB File Exchange:** https://uk.mathworks.com/matlabcentral/fileexchange/182686
+- **Author:** [Sacha Bechara](https://github.com/sachabechara)
 
 Built to make PCA more accessible and visually intuitive.
