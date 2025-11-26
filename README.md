@@ -89,7 +89,7 @@ If you use this in teaching or research:
 
 **APA:**
 ```
-Bechara, S. (2024). PCA Builder & Visualization: An Interactive Tool 
+Bechara, S. (2025). PCA Builder & Visualization: An Interactive Tool 
   for Understanding Principal Component Analysis [Computer software]. 
   MATLAB Central File Exchange. Retrieved from 
   https://www.mathworks.com/matlabcentral/fileexchange/182686
@@ -97,11 +97,11 @@ Bechara, S. (2024). PCA Builder & Visualization: An Interactive Tool
 
 **BibTeX:**
 ```bibtex
-@software{bechara2024pca,
+@software{bechara2025pca,
   author = {Bechara, Sacha},
   title = {PCA Builder \& Visualization: An Interactive Tool for 
            Understanding Principal Component Analysis},
-  year = {2024},
+  year = {2025},
   publisher = {MATLAB Central File Exchange},
   url = {https://www.mathworks.com/matlabcentral/fileexchange/182686}
 }
