@@ -14,7 +14,8 @@ Interactive MATLAB tool for learning Principal Component Analysis through hands-
 - [MATLAB Drive folder](https://drive.mathworks.com/sharing/a0c10730-3174-49c7-ae6e-f63b8f4355fa) - View files
 
 *Requires free MathWorks account*
-
+For individuals who have never used mahtlab before:
+ONCE you are in mahtlab online (or runned locally), in the COMMAND TAB, type 'pca_builder' and it will open the vizualisation.
 ---
 
 ## What is this?
